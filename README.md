@@ -56,3 +56,60 @@ The app creates a small synthetic raster for demonstration. **It is synthetic da
 4. Consider pretrained model integration only after verifying requirements and compute feasibility.
 
 See [MILESTONES.md](MILESTONES.md) and [acceptance_criteria.md](acceptance_criteria.md).
+
+
+## Real-data and research pipeline (implementation in progress)
+
+### Sentinel-2 catalog search
+The optional STAC catalog client queries public Sentinel-2 L2A metadata through the
+Element 84 Earth Search API. It returns item IDs, acquisition timestamps, cloud-cover
+metadata, footprints, and available asset URLs. Catalog metadata alone does not
+prove that a scene is cloud-free or suitable for analysis.
+
+Install:
+```bash
+pip install -e ".[catalog]"
+```
+
+Example:
+```python
+from geomind.catalog import search_sentinel2
+items = search_sentinel2(
+    (77.20, 28.40, 77.55, 28.65), "2024-01-01", "2024-03-31",
+    max_cloud_cover=20, limit=10,
+)
+for item in items:
+    print(item["id"], item["datetime"], item["cloud_cover_percent"])
+```
+
+### NDVI analysis
+`geomind.remote_sensing.calculate_ndvi(red_path, nir_path)` computes NDVI from
+red and near-infrared raster bands, checks CRS/nodata, aligns the NIR raster to the
+red grid when necessary, reports valid-pixel coverage, and can write an NDVI GeoTIFF.
+Reflectance scaling must be appropriate for the downloaded asset. Its NDVI >= 0.3
+vegetation-candidate rule is explicitly a heuristic, not ground truth. Date-to-date
+comparisons require compatible scenes, masks, grids and acquisition conditions.
+
+### Optional vision-language model
+Install `pip install -e ".[vlm]"`, set `OPENAI_API_KEY` as an environment variable,
+and optionally set `GEOMIND_VLM_MODEL`. The API key must never be committed. Call
+`geomind.vlm.answer_image_question(...)` with an image preview and question. For a
+controlled comparison, use the same model and settings for the image-only condition
+(`evidence=None`) and the grounded condition (provide the computed evidence object).
+A model response is not ground truth; numeric claims must be checked against tools.
+
+### Evaluation helpers
+`geomind.evaluation` includes exact-match accuracy, numeric MAE/RMSE/bias, paired
+binary correctness summaries and unsupported-claim rate. These are scoring helpers,
+not a completed benchmark. Research claims require a frozen test set, independent
+reference answers, documented prompts/model versions, and appropriate uncertainty
+intervals and paired statistical tests.
+
+### Current limits
+- The public website is a static explorer; it does not itself run the Python analysis
+  backend. The backend is run locally or hosted separately.
+- The STAC client searches for scenes; automatic download, cloud masking, scene
+  compositing and full end-to-end date comparison still require integration.
+- NDVI is implemented as a spectral indicator, not a validated vegetation map.
+- VLM inference requires a compatible API key and can incur usage charges.
+- No experimental performance claims should be made until the benchmark has been run.
