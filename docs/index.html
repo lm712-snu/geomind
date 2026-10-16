@@ -42,12 +42,13 @@ footer{color:#8097aa;font-size:10px;line-height:1.5}
  <p class="sub">A 3D Earth explorer connected to NASA satellite visualisations, with geospatial measurements and a transparent evidence record.</p>
  <div class="section"><h2>01 / Satellite imagery</h2>
  <label for="layer">Observation layer</label><select id="layer">
+ <option value="ESRI_World_Imagery">Esri · high-resolution world imagery (default)</option>
+ <option value="OPENSTREETMAP">OpenStreetMap · street map fallback</option>
  <option value="VIIRS_SNPP_CorrectedReflectance_TrueColor">VIIRS · Suomi NPP true colour</option>
  <option value="MODIS_Terra_CorrectedReflectance_TrueColor">MODIS · Terra true colour</option>
  <option value="MODIS_Aqua_CorrectedReflectance_TrueColor">MODIS · Aqua true colour</option>
  <option value="VIIRS_NOAA20_CorrectedReflectance_TrueColor">VIIRS · NOAA-20 true colour</option>
- <option value="ESRI_World_Imagery">Esri · high-resolution world imagery</option>
- </select>
+  </select>
  <label for="date">Observation date (UTC)</label><input id="date" type="date">
  <div class="row" style="margin-top:8px"><button class="btn primary" id="apply">Load imagery</button><button class="btn" id="recent">Recent date</button></div>
  <label for="opacity">Imagery opacity <span id="opacityVal">100%</span></label><input id="opacity" type="range" min="20" max="100" value="100">
@@ -78,11 +79,12 @@ footer{color:#8097aa;font-size:10px;line-height:1.5}
 const $=id=>document.getElementById(id);
 const toast=(msg)=>{const el=$('toast');el.textContent=msg;el.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.style.display='none',4300)};
 const isoDaysAgo=n=>{const d=new Date();d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10)};
-const today=new Date().toISOString().slice(0,10);$('date').max=today;$('date').value=isoDaysAgo(3);
+const today=new Date().toISOString().slice(0,10);$('date').max=today;$('date').value=isoDaysAgo(3);$('layer').value='ESRI_World_Imagery';
 $('liveStatus').textContent='● NASA imagery · date-stamped';
 let viewer, imageryLayer, drawing=false, vertices=[], vertexEntities=[], polygonEntity=null, polygonGeo=null, rotating=true, spinHandler;
 const layers=()=> $('layer').value, selectedDate=()=> $('date').value;
 const isEsri=()=>layers()==='ESRI_World_Imagery';
+const isOSM=()=>layers()==='OPENSTREETMAP';
 try{
  viewer=new Cesium.Viewer('globe',{
   animation:false,timeline:false,baseLayerPicker:false,geocoder:false,homeButton:false,sceneModePicker:false,
@@ -90,12 +92,15 @@ try{
   baseLayer:false,terrainProvider:new Cesium.EllipsoidTerrainProvider(),
   creditContainer:document.createElement('div')
  });
- viewer.scene.globe.enableLighting=true;viewer.scene.globe.showGroundAtmosphere=true;
+ viewer.scene.globe.enableLighting=false;viewer.scene.globe.showGroundAtmosphere=true;
  viewer.scene.backgroundColor=Cesium.Color.fromCssColorString('#06111d');
  viewer.scene.screenSpaceCameraController.minimumZoomDistance=120;
  viewer.scene.screenSpaceCameraController.maximumZoomDistance=35000000;
  viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(12,18,23000000)});
- const provider=()=>isEsri()?new Cesium.UrlTemplateImageryProvider({
+ const provider=()=>isOSM()?new Cesium.UrlTemplateImageryProvider({
+  url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',maximumLevel:19,
+  credit:new Cesium.Credit('© OpenStreetMap contributors')
+ }):isEsri()?new Cesium.UrlTemplateImageryProvider({
   url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
   tilingScheme:new Cesium.WebMercatorTilingScheme(),maximumLevel:19,
   credit:new Cesium.Credit('Imagery © Esri and its data providers')
@@ -106,7 +111,7 @@ try{
   credit:new Cesium.Credit('Imagery courtesy NASA GIBS')
  });
  imageryLayer=viewer.imageryLayers.addImageryProvider(provider());imageryLayer.alpha=1;
- imageryLayer.errorEvent.addEventListener(()=>{$('imageryStatus').textContent='Some imagery tiles failed to load. Try a different date or layer.'});
+ imageryLayer.errorEvent.addEventListener(()=>{$('imageryStatus').textContent='Imagery tile request failed. Switch to OpenStreetMap fallback or try again.';});
  viewer.scene.globe.tileLoadProgressEvent.addEventListener(n=>{if(n===0)$('imageryStatus').textContent='Imagery tiles loaded where available · '+layers().replaceAll('_',' ')+' · '+selectedDate()});
  const controls=new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
  controls.setInputAction(m=>{
@@ -141,7 +146,7 @@ function finishPolygon(){
 $('draw').onclick=()=>{if(!viewer)return;drawing=true;vertices=[];polygonGeo=null;vertexEntities.forEach(e=>viewer.entities.remove(e));vertexEntities=[];if(polygonEntity)viewer.entities.remove(polygonEntity);polygonEntity=null;$('area').textContent='—';$('perimeter').textContent='—';$('centre').textContent='—';$('vertices').textContent='0';$('draw').classList.add('active');$('finish').disabled=true;toast('Draw mode active: click at least three points on the globe, then Finish polygon.')};
 $('finish').onclick=finishPolygon;
 $('clear').onclick=()=>{drawing=false;vertices=[];polygonGeo=null;vertexEntities.forEach(e=>viewer.entities.remove(e));vertexEntities=[];if(polygonEntity)viewer.entities.remove(polygonEntity);polygonEntity=null;$('area').textContent='—';$('perimeter').textContent='—';$('centre').textContent='—';$('vertices').textContent='0';$('finish').disabled=true;$('draw').classList.remove('active');$('proofStatus').textContent='No area selected. Draw a boundary to create an evidence record.'};
-function reloadImagery(){if(!viewer)return;const old=imageryLayer;imageryLayer=viewer.imageryLayers.addImageryProvider(isEsri()?new Cesium.UrlTemplateImageryProvider({url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',tilingScheme:new Cesium.WebMercatorTilingScheme(),maximumLevel:19,credit:new Cesium.Credit('Imagery © Esri and its data providers')}):new Cesium.UrlTemplateImageryProvider({url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{Time}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',tilingScheme:new Cesium.WebMercatorTilingScheme(),maximumLevel:9,customTags:{layer:()=>layers(),Time:()=>selectedDate()},credit:new Cesium.Credit('Imagery courtesy NASA GIBS')}));imageryLayer.alpha=Number($('opacity').value)/100;if(old)viewer.imageryLayers.remove(old,true);$('imageryStatus').textContent=isEsri()?'Esri World Imagery selected. Not live; image dates and detail vary by location. Check provider terms for your use.':'NASA '+layers().replaceAll('_',' ')+' for '+selectedDate()+'. Available zoom is limited; missing dates/tiles vary by product.'}
+function reloadImagery(){if(!viewer)return;const old=imageryLayer;imageryLayer=viewer.imageryLayers.addImageryProvider(isOSM()?new Cesium.UrlTemplateImageryProvider({url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',maximumLevel:19,credit:new Cesium.Credit('© OpenStreetMap contributors')}):isEsri()?new Cesium.UrlTemplateImageryProvider({url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',tilingScheme:new Cesium.WebMercatorTilingScheme(),maximumLevel:19,credit:new Cesium.Credit('Imagery © Esri and its data providers')}):new Cesium.UrlTemplateImageryProvider({url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{Time}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',tilingScheme:new Cesium.WebMercatorTilingScheme(),maximumLevel:9,customTags:{layer:()=>layers(),Time:()=>selectedDate()},credit:new Cesium.Credit('Imagery courtesy NASA GIBS')}));imageryLayer.alpha=Number($('opacity').value)/100;if(old)viewer.imageryLayers.remove(old,true);$('imageryStatus').textContent=isOSM()?'OpenStreetMap street-map fallback selected.':isEsri()?'Esri World Imagery selected. Not live; image dates and detail vary by location. Check provider terms for your use.':'NASA '+layers().replaceAll('_',' ')+' for '+selectedDate()+'. Available zoom is limited; missing dates/tiles vary by product.'}
 $('apply').onclick=()=>{if(selectedDate()>today){toast('Choose today or an earlier date.');return}reloadImagery()};
 $('recent').onclick=()=>{$('date').value=isoDaysAgo(3);reloadImagery()};
 $('opacity').oninput=()=>{if(imageryLayer)imageryLayer.alpha=Number($('opacity').value)/100;$('opacityVal').textContent=$('opacity').value+'%'};
