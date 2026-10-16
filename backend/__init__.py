@@ -1,1 +1,0 @@
-"""GeoMind HTTP API package."""
