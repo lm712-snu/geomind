@@ -61,7 +61,23 @@ footer{color:#8097aa;font-size:10px;line-height:1.5}
  <div class="kpis" style="margin-top:12px"><div class="kpi"><small>Area</small><strong id="area">—</strong></div><div class="kpi"><small>Perimeter</small><strong id="perimeter">—</strong></div><div class="kpi"><small>Vertices</small><strong id="vertices">0</strong></div><div class="kpi"><small>Centre</small><strong id="centre">—</strong></div></div>
  <button class="btn full" id="export">Export GeoProof JSON</button><button class="btn full" id="geojson">Export boundary GeoJSON</button>
  </div>
- <div class="section"><h2>03 / Analysis status</h2>
+ <div class="section"><h2>03 / Connect analysis backend</h2>
+ <p class="note">The globe is static hosting; Python GIS and VLM operations run on the separate GeoMind API service.</p>
+ <label for="apiUrl">GeoMind API URL</label><input id="apiUrl" type="url" placeholder="https://your-geomind-api.onrender.com" autocomplete="url">
+ <div class="row" style="margin-top:8px"><button class="btn primary" id="apiCheck">Test connection</button><button class="btn" id="apiClear">Clear URL</button></div>
+ <p class="note" id="apiStatus">Backend not connected. Deploy the API from the repository's render.yaml, then paste its service URL here.</p>
+ <label>Sentinel-2 scene search · Noida area</label>
+ <div class="row"><input id="catalogStart" type="date" aria-label="Catalog start date"><input id="catalogEnd" type="date" aria-label="Catalog end date"></div>
+ <button class="btn full" id="catalogSearch">Search real satellite scenes</button>
+ <p class="note" id="catalogStatus">Search returns catalog metadata, not automatically downloaded or cloud-masked imagery.</p>
+ <div id="catalogResults" class="note"></div>
+ <label for="redBand">Red band GeoTIFF</label><input id="redBand" type="file" accept=".tif,.tiff,image/tiff">
+ <label for="nirBand">Near-infrared band GeoTIFF</label><input id="nirBand" type="file" accept=".tif,.tiff,image/tiff">
+ <button class="btn full" id="runNdvi">Calculate NDVI from uploaded bands</button>
+ <p class="note" id="ndviStatus">Uploads are sent to the configured API for processing. Use compatible reflectance-scaled bands with CRS and nodata metadata.</p>
+ <pre id="ndviResults" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:10px;color:#b9d5e9"></pre>
+ </div>
+ <div class="section"><h2>04 / Analysis status</h2>
  <div class="notice">Current mode: satellite visualisation + geometry measurement. A drawn polygon is not land-cover classification. This page does not yet infer vegetation, buildings, flood extent, or change from pixels.</div>
  <p class="note" style="margin-top:10px">For scientific analysis, use downloadable multispectral source data (e.g. Sentinel-2 or NASA HLS), cloud masks, a declared method, and validation data. A rendered true-colour tile is for viewing—not a substitute for source bands.</p>
  </div>
@@ -77,6 +93,19 @@ footer{color:#8097aa;font-size:10px;line-height:1.5}
 (function(){
 'use strict';
 const $=id=>document.getElementById(id);
+const DEFAULT_API_URL='';
+const apiUrl=()=>($('apiUrl').value.trim().replace(/\\/+$/,''));
+function setApiStatus(text,ok=false){$('apiStatus').textContent=text;$('apiStatus').style.color=ok?'var(--cyan)':'var(--muted)'}
+$('apiUrl').value=DEFAULT_API_URL;
+$('catalogStart').value=isoDateOffset(90);$('catalogEnd').value=isoDateOffset(7);
+function isoDateOffset(days){const d=new Date();d.setUTCDate(d.getUTCDate()-days);return d.toISOString().slice(0,10)}
+async function apiFetch(path,options={}){const base=apiUrl();if(!base)throw new Error('Deploy the API and paste its URL above first.');return fetch(base+path,options)}
+$('apiCheck').onclick=async()=>{setApiStatus('Connecting…');try{const r=await apiFetch('/health');if(!r.ok)throw Error('API returned HTTP '+r.status);const d=await r.json();setApiStatus('Connected · '+d.service+' · '+d.version,true);toast('GeoMind backend connection successful.')}catch(e){setApiStatus('Connection failed: '+e.message);toast('Backend not reachable. Check URL, deployment status and CORS configuration.')}};
+$('apiClear').onclick=()=>{$('apiUrl').value='';setApiStatus('API URL cleared. Paste the deployed backend URL to connect.')};
+$('catalogSearch').onclick=async()=>{const btn=$('catalogSearch');btn.disabled=true;$('catalogStatus').textContent='Searching public Sentinel-2 catalog…';$('catalogResults').textContent='';try{const r=await apiFetch('/api/catalog/sentinel-2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({west:77.20,south:28.40,east:77.55,north:28.65,start_date:$('catalogStart').value,end_date:$('catalogEnd').value,max_cloud_cover:30,limit:10})});const d=await r.json();if(!r.ok)throw Error(d.detail||('HTTP '+r.status));$('catalogStatus').textContent='Found '+d.count+' catalog item(s). Scene metadata is not a cloud-free guarantee.';const box=$('catalogResults');if(!d.items.length){box.textContent='No matching scenes for this region/date/cloud threshold. Widen the date range or cloud threshold.'}else{box.innerHTML=d.items.map(it=>'<div style="border-top:1px solid var(--line);padding:8px 0"><b>'+escapeHtml(it.id)+'</b><br>'+escapeHtml((it.datetime||'Date unavailable').slice(0,10))+' · cloud '+(it.cloud_cover_percent==null?'unknown':Number(it.cloud_cover_percent).toFixed(1)+'%')+'<br><a style="color:var(--cyan)" href="'+escapeHtml(it.catalog_item_url||'#')+'" target="_blank" rel="noopener">Open catalog item</a><br><small>'+escapeHtml(Object.keys(it.assets||{}).join(', ')||'No listed expected assets')+'</small></div>').join('')}}catch(e){$('catalogStatus').textContent='Catalog search failed: '+e.message}finally{btn.disabled=false}};
+$('runNdvi').onclick=async()=>{const red=$('redBand').files[0],nir=$('nirBand').files[0];if(!red||!nir){$('ndviStatus').textContent='Select both a red-band and NIR-band GeoTIFF first.';return}const btn=$('runNdvi');btn.disabled=true;$('ndviStatus').textContent='Uploading bands and calculating NDVI…';$('ndviResults').textContent='';try{const body=new FormData();body.append('red',red);body.append('nir',nir);const r=await apiFetch('/api/analysis/ndvi',{method:'POST',body});const d=await r.json();if(!r.ok)throw Error(d.detail||('HTTP '+r.status));$('ndviStatus').textContent='NDVI calculation completed. Review coverage, CRS, scale factors and limitations.';$('ndviResults').textContent=JSON.stringify(d,null,2)}catch(e){$('ndviStatus').textContent='NDVI request failed: '+e.message}finally{btn.disabled=false}};
+function escapeHtml(value){return String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+
 const toast=(msg)=>{const el=$('toast');el.textContent=msg;el.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.style.display='none',4300)};
 const isoDaysAgo=n=>{const d=new Date();d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10)};
 const today=new Date().toISOString().slice(0,10);$('date').max=today;$('date').value=isoDaysAgo(3);$('layer').value='ESRI_World_Imagery';
