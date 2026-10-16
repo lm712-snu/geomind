@@ -1,4 +1,27 @@
-# GeoMind architecture (v0.1, Phase 2)
+# GeoMind architecture — applied CVLM thesis testbed
+
+GeoMind is the geospatial case study for the thesis [Mathematics of Computer Vision Language Models](https://github.com/lm712-snu/cvlm-thesis). The thesis companion teaches the mathematical operations explicitly; GeoMind provides the real-world problem setting, deterministic measurements, provenance and evaluation harness.
+
+## Thesis-to-system map
+
+| Thesis concept | GeoMind connection | Verification boundary |
+|---|---|---|
+| Image tensors and channels | Raster bands, spatial grids, CRS, nodata and pixel size | Metadata and alignment tests |
+| Convolution and feature maps | Mathematical demonstration in the companion thesis lab; future model adapter may consume image chips | Do not claim current website performs CNN inference |
+| Patches and visual embeddings | Explain how a VLM represents satellite-image regions | Record model/processor version if implemented |
+| Attention and cross-modal alignment | Explain how image and text representations interact | Similarity is not factual proof |
+| GIS measurements | Area, proportions, NDVI and coverage from raster inputs | Deterministic tests and explicit units |
+| Grounded language output | Same VLM with/without GeoProof evidence | Paired, held-out evaluation |
+| Mathematical reproducibility | GeoProof provenance and recomputation | Verifier checks recorded calculations; not the truth of source data |
+
+## Core principles
+
+1. Numbers come from deterministic code; language models may interpret and phrase, not invent measurements.
+2. Every evidence-grounded answer should link claims to a GeoProof record.
+3. Abstain when evidence is missing, invalid or insufficient.
+4. Keep core calculations CPU-feasible; heavy inference is an optional adapter.
+5. Separate educational simulations, actual model inference, GIS computations and measured experimental results in the UI and documentation.
+
 
 ## Principles
 1. Numbers come from deterministic code. Language models may plan and phrase only.
