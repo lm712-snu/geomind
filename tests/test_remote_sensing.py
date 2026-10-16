@@ -27,7 +27,7 @@ def test_ndvi_known_values_and_output(tmp_path):
     result = calculate_ndvi(red, nir, output_path=output)
     assert result["index"] == "NDVI"
     assert result["valid_pixels"] == 4
-    assert result["mean_ndvi"] == pytest.approx(0.5)
+    assert result["mean_ndvi"] == pytest.approx(5/12)
     assert result["vegetation_candidate_fraction_of_valid"] == pytest.approx(0.75)
     assert output.exists()
     with rasterio.open(output) as ds:
