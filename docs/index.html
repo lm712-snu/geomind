@@ -93,7 +93,7 @@ footer{color:#8097aa;font-size:10px;line-height:1.5}
 (function(){
 'use strict';
 const $=id=>document.getElementById(id);
-const DEFAULT_API_URL='';
+const DEFAULT_API_URL='https://geomind-wc2o.onrender.com';
 const apiUrl=()=>($('apiUrl').value.trim().replace(/\\/+$/,''));
 function setApiStatus(text,ok=false){$('apiStatus').textContent=text;$('apiStatus').style.color=ok?'var(--cyan)':'var(--muted)'}
 $('apiUrl').value=DEFAULT_API_URL;
@@ -119,7 +119,8 @@ try{
   animation:false,timeline:false,baseLayerPicker:false,geocoder:false,homeButton:false,sceneModePicker:false,
   navigationHelpButton:false,fullscreenButton:false,infoBox:false,selectionIndicator:false,shouldAnimate:true,
   baseLayer:false,terrainProvider:new Cesium.EllipsoidTerrainProvider(),
-  creditContainer:document.createElement('div')
+  creditContainer:document.createElement('div'),
+  contextOptions:{webgl:{failIfMajorPerformanceCaveat:false}}
  });
  viewer.scene.globe.enableLighting=false;viewer.scene.globe.showGroundAtmosphere=true;
  viewer.scene.backgroundColor=Cesium.Color.fromCssColorString('#06111d');
