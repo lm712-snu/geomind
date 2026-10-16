@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#06111d">
-<meta name="description" content="GeoMind — explore a 3D Earth with regularly updated NASA satellite imagery and evidence-led geospatial analysis.">
-<title>GeoMind — Earth Intelligence</title>
+<meta name="description" content="GeoMind — a satellite-imagery case study for the Mathematics of Computer Vision-Language Models thesis, combining Earth observation, GIS measurements and verifiable evidence.">
+<title>GeoMind — CVLM Thesis Research</title>
 <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.130/Build/Cesium/Widgets/widgets.css">
 <style>
 :root{color-scheme:dark;--bg:#06111d;--panel:rgba(9,22,35,.94);--line:rgba(160,190,213,.18);--muted:#8ca4b9;--text:#e9f4ff;--cyan:#69e0d0;--blue:#78baff}
@@ -33,13 +33,13 @@ footer{color:#8097aa;font-size:10px;line-height:1.5}
 </head>
 <body><div id="app"><div id="globe"></div>
 <header>
- <div class="brand"><div class="logo">G</div><div><strong>GEOMIND</strong><small>Earth intelligence system</small></div></div>
+ <div class="brand"><div class="logo">G</div><div><strong>GEOMIND</strong><small>CVLM thesis research</small></div></div>
  <form id="searchForm" class="search"><span style="padding-left:8px;color:var(--cyan)">⌕</span><input id="place" placeholder="Search a place, landmark or coordinates…" autocomplete="off" aria-label="Search for a place"><button class="primary" type="submit">Fly to</button></form>
  <div class="status" id="liveStatus">● Earth observation</div>
 </header>
 <aside class="panel">
- <div class="eyebrow">Explore · Measure · Verify</div><h1>See the planet.<br>Understand change.</h1>
- <p class="sub">A 3D Earth explorer connected to NASA satellite visualisations, with geospatial measurements and a transparent evidence record.</p>
+ <div class="eyebrow">Mathematics · Vision · Geospatial evidence</div><h1>From satellite pixels<br>to grounded answers.</h1>
+ <p class="sub">GeoMind is the applied satellite-imagery case study for the thesis <i>Mathematics of Computer Vision-Language Models</i>. Explore Earth imagery, measure geographic regions and inspect the evidence that a future vision-language system would need to support its claims.</p>
  <div class="section"><h2>01 / Satellite imagery</h2>
  <label for="layer">Observation layer</label><select id="layer">
  <option value="ESRI_World_Imagery">Esri · high-resolution world imagery (default)</option>
@@ -64,6 +64,11 @@ footer{color:#8097aa;font-size:10px;line-height:1.5}
  <div class="section"><h2>03 / Analysis status</h2>
  <div class="notice">Current mode: satellite visualisation + geometry measurement. A drawn polygon is not land-cover classification. This page does not yet infer vegetation, buildings, flood extent, or change from pixels.</div>
  <p class="note" style="margin-top:10px">For scientific analysis, use downloadable multispectral source data (e.g. Sentinel-2 or NASA HLS), cloud masks, a declared method, and validation data. A rendered true-colour tile is for viewing—not a substitute for source bands.</p>
+ </div>
+  <div class="section"><h2>Thesis / CVLM mathematics</h2>
+ <p class="note">The companion thesis lab explains image tensors, convolution, patch embeddings, attention and image-text alignment with explicit calculations.</p>
+ <div class="notice">Conceptual pipeline: raster pixels → visual features/embeddings → image-text reasoning → GIS evidence → answer verification. This globe currently visualizes imagery and measures drawn geometry; it does not itself run a CNN or transformer.</div>
+ <p class="note" style="margin-top:10px"><a href="https://github.com/lm712-snu/cvlm-thesis" target="_blank" rel="noopener" style="color:var(--cyan)">Open the Mathematics of CVLMs thesis lab ↗</a></p>
  </div>
  <div class="section"><h2>GeoProof / Provenance</h2><p class="note" id="proofStatus">No area selected. Draw a boundary to create an evidence record.</p>
  <footer>Imagery: NASA Global Imagery Browse Services (GIBS). Globe: CesiumJS. Geocoding: OpenStreetMap Nominatim. Basemap and data are subject to their respective terms.</footer></div>
