@@ -1,46 +1,79 @@
-# Research protocol (draft v0.1 — to be frozen before any test-set evaluation)
+# Research protocol — Mathematics of Computer Vision-Language Models applied to satellite imagery
 
-## Question and hypotheses
-RQ: does grounding VLM responses in explicit GIS measurements and provenance improve factual accuracy and spatial consistency versus image-only responses?
-- H1 (primary): on answerable items, per-item correctness is higher for the grounded system than the image-only baseline.
-- H2 (secondary): the grounded system has a lower unsupported-claim rate and abstains more appropriately on unanswerable items.
-Null results are reported as such.
+**Status:** draft protocol. Freeze the dataset, prompts, thresholds, test split and model settings before evaluating the held-out set.
 
-## Systems compared (same images, questions, reference answers, scoring)
-- **S0 image-only:** a VLM sees the image(s) and the question only.
-- **S1 grounded:** the *same* VLM (same weights/settings) additionally receives the GeoProof evidence block (computed measurements, metadata, limitations). Using the same model isolates the effect of grounding; changing models would confound it.
-- **S2 deterministic reference (no LLM):** tools + templated answers. Shows the ceiling of the tool layer, not a competitor in the primary test.
-Which VLM is used is decided in Phase 4/5 against the compute budget and recorded with version and settings.
+## Thesis alignment
 
-## Circularity guard (critical)
-Reference answers must come from a source **independent of the measurement path of S1**: e.g. human-verified labels/masks from a documented dataset, or manual verification. Never from an LLM's output, and never from the same classifier/raster computation S1 uses to answer. If an independent reference is unavailable for an item type, that item type is excluded or reported as "internal consistency only", not "accuracy".
+GeoMind is the applied case study for the undergraduate thesis **Mathematics of Computer Vision Language Models**. The companion [CVLM thesis project](https://github.com/lm712-snu/cvlm-thesis) is responsible for explicitly teaching and demonstrating the mathematics of convolution, patch embeddings, attention, cross-modal alignment and language-generation scores. GeoMind asks a narrower empirical question about the reliability of VLM answers when grounded in geospatial measurements.
 
-## Items
-Question types: numeric (area, proportion, change), categorical (dominant class), spatial relation (contains/overlaps/direction), and **unanswerable** (missing metadata, invalid mask, out-of-scope) where the correct behaviour is to ask or abstain. Templates and counts are fixed and documented before testing. Report **tool coverage** (share of items the tools can answer), since coverage favours S1.
+This protocol does not assume that the current website runs a CNN or transformer locally. Model inference is an optional research component; the raster/GIS pipeline and GeoProof verifier remain deterministic.
 
-## Splits
-Geographic holdout: assign whole regions (not tiles) to dev vs test. Prompts, tolerances and thresholds are tuned on dev only; the test split is evaluated once. Report any leakage risks (overlapping scenes, shared source imagery).
+## Research question and hypotheses
+
+**RQ:** Does grounding a VLM response in explicit GIS measurements and geospatial provenance improve factual correctness and spatial consistency over image-only responses?
+
+- **H1 (primary):** on answerable items, per-item correctness is higher for the evidence-grounded condition than the image-only baseline.
+- **H2 (secondary):** the grounded condition has a lower unsupported-claim rate and abstains more appropriately on unanswerable items.
+- Null or negative results must be reported as such.
+
+## Systems compared
+
+- **S0 — image-only:** a VLM sees the same image and question, without a GeoProof evidence block.
+- **S1 — evidence-grounded:** the same VLM, weights, prompt framework and generation settings receive the verified GeoProof evidence block (measurements, metadata, coverage and limitations).
+- **S2 — deterministic tool output:** a templated output from GIS calculations, used to characterize what the tool layer can report; not the primary VLM comparison.
+
+Keeping the VLM and settings fixed between S0 and S1 isolates the effect of grounding. Record model name/version, prompts, decoding settings, package versions, data hashes and all costs. If no model can be used within the available budget, report the implementation as not yet evaluated rather than substituting fabricated results.
+
+## Mathematical path being studied
+
+The project should explain these operations in the thesis companion and connect each one to a concrete GeoMind example:
+
+1. Image/raster representation: (X\in\mathbb{R}^{H\times W\times C}), with spatial resolution, bands, CRS and nodata treated explicitly.
+2. Convolution: (Y_{i,j,k}=\sum_{u,v,c}K_{u,v,c,k}X_{i+u,j+v,c}), with stride/padding conventions documented.
+3. Patch representation and projection: (z_i=x_iW_E+b_E), with positional information described where applicable.
+4. Attention: (\operatorname{softmax}(QK^\top/\sqrt{d_k})V).
+5. Cross-modal similarity: (s=z_I^\top z_T) for normalized embeddings. Similarity is not evidence of truth.
+6. Evidence grounding: deterministic area, proportion, coverage and metadata are serialized with their units and assumptions; the verifier recomputes what can be checked.
+
+These equations explain the model family and analysis pipeline conceptually. Do not claim the current GeoMind website computes these model operations unless a tested implementation is added.
+
+## Circularity guard
+
+Reference answers must be independent of the measurement path used by S1: for example, human-verified labels/masks from a documented dataset or manual verification. Never use an LLM answer as ground truth or score S1 solely against the same raster calculation it receives. If independent reference data are unavailable for an item type, report internal consistency only or exclude that item type from accuracy claims.
+
+## Items and question types
+
+Use a fixed set of numeric (area, proportion, change), categorical (dominant class), spatial relation (contains/overlaps/direction) and unanswerable questions (missing metadata, invalid mask, unsupported request). Freeze templates, item counts and scoring rules before test evaluation. Report tool coverage because the grounded system can only answer questions its tools support.
+
+## Geographic split
+
+Hold out entire regions, not randomly selected neighbouring tiles. Tune prompts, thresholds and numeric tolerances on development data only. Evaluate the test split once. Document possible leakage from overlapping scenes, shared imagery, seasonality and related labels.
 
 ## Outcomes
-- **Primary:** per-item correctness. Categorical/spatial: exact match to reference. Numeric: correct if |ŷ − y| ≤ max(abs_tol, rel_tol·|y|), with tolerances fixed in advance.
-- **Secondary:** numeric MAE and RMSE (with units); IoU where masks exist (edge cases per architecture doc); spatial-relation accuracy; unsupported-claim rate (a claim not entailed by the evidence record, via rule-based check plus a manual audit sample); evidence-validity rate (verifier status); abstention precision/recall on unanswerable items.
 
-## Statistics (paired by item)
-- Binary outcomes: exact McNemar test; effect = difference in accuracy with 95% CI from a paired bootstrap (fixed seed, ≥10,000 resamples), plus discordant-pair counts.
-- Numeric errors: Wilcoxon signed-rank on paired absolute errors; effect = median paired difference with bootstrap CI and rank-biserial correlation.
-- Items from the same scene/region are not independent: use a **cluster bootstrap** at scene/region level.
-- One primary hypothesis; secondary tests reported with Holm correction. Always give CIs, not only p-values.
-- Precision illustration (arithmetic): with n = 100 and accuracy near 0.5, a simple 95% interval half-width is about ±9.8 percentage points. Small samples give wide intervals; this will be stated, not hidden.
-- Calibration (ECE/Brier/reliability) only if confidences exist and the sample supports it; otherwise "not evaluated". No output is called "calibrated" without that evaluation.
+- Primary: per-item correctness against independent reference answers.
+- Numeric: MAE, RMSE and bias with units; tolerance-based correctness using thresholds fixed in advance.
+- Spatial: relation accuracy and, where independent masks exist, IoU/Dice.
+- Grounding: unsupported-claim rate, GeoProof verification rate and evidence coverage.
+- Abstention: precision/recall on unanswerable questions.
+- Calibration: Brier score/ECE only if meaningful confidence values and enough samples exist; otherwise mark not evaluated.
+
+## Statistics
+
+- Binary paired outcomes: exact McNemar test, discordant-pair counts, and paired-bootstrap 95% confidence interval for accuracy difference (fixed seed; at least 10,000 resamples if feasible).
+- Numeric paired errors: Wilcoxon signed-rank test and median paired error difference with confidence interval.
+- Cluster samples by scene/region where observations are not independent.
+- Use one primary hypothesis; apply Holm correction to secondary tests.
+- Report effect sizes and confidence intervals, not p-values alone. Small sample sizes and low statistical power must be stated explicitly.
 
 ## Reproducibility
-Fixed seeds; recorded package versions, input hashes and config; results written as JSON/CSV with a schema; one command reruns the evaluation.
 
-## Threats to validity (to be extended)
-Classification error propagating into measurements; temporal comparability and season; cloud cover/invalid pixels; resolution mismatch; template bias in questions; small N; tool-coverage bias; dependence between S0/S1 outputs when sharing a model (handled by pairing); prompt sensitivity.
+Keep the question set, references, dataset versions/licences, prompts, model settings, seeds, input hashes, code versions and scoring outputs under version control where licensing permits. Store results in a documented JSON/CSV schema and provide a single repeatable evaluation command.
 
-## Data and model sources — UNVERIFIED candidates
-No dataset below is confirmed usable yet. Before integration, record in a dataset card: licence/terms, commercial-use limits, size, CRS, dates, resolution, cloud mask availability, citation.
-- Synthetic rasters (own generator): fully known truth; used for Slice 1.
-- Public land-cover products and Sentinel-2 archives: candidates only; licences and versions to be verified.
-- GEOBench-VLM: aggregates multiple source datasets; per-source licences to be verified (see `literature_notes.md`).
+## Threats to validity
+
+Classification error can propagate into measurements; seasonal and atmospheric conditions can undermine temporal comparisons; cloud/nodata masks can bias coverage; resolution mismatch can alter apparent objects; templates can bias answers; a small sample gives wide intervals; tool-coverage bias can favour S1; shared model outputs are dependent; and prompt sensitivity may affect outcomes.
+
+## Data and model sources
+
+Candidates are not approved until licences and terms are verified. For each dataset, record source, version, licence, citation, dates, CRS, spatial resolution, cloud-mask availability and any usage restrictions. For each model, record licence, inference requirements, version and cost.
